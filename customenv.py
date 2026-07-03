@@ -9,13 +9,14 @@ class GridWorldEnv(gym.Env):
     def __init__(self, render_mode=None, size: int = 5):
         self.window_size = 512
         self.size = size
-        self._agent_location = np.array([-1, -1], dtype=np.int32)
+        self.num_agents = 2
+        self._agent_locations = np.array([[-1, -1], [-1, -1]], dtype=np.int32)
         self._target_location = np.array([-1, -1], dtype=np.int32)
         self._vertiport_locations = np.array([[-1, -1],[-1, -1],[-1, -1],[-1, -1]], dtype=np.int32)
         
         self.observation_space = gym.spaces.Dict(
             {
-                "agent": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),   
+                "agent_locations": gym.spaces.Box(0, size - 1, shape=(2, 1), dtype=int),   
                 "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),
                 "vertiport_locations": gym.spaces.Box(0, size - 1, shape=(4,1), dtype=int)
             }
@@ -31,8 +32,9 @@ class GridWorldEnv(gym.Env):
         self.render_mode = render_mode
         self.window = None
         self.clock = None
-        self.unique_vis = []
-        self.count = 0
+        self.unique_vis_1 = []
+        self.unique_vis_2 = []
+        self.count = [0, 0]
 
     def _action_to_state(self, location):
         return((location[0] * self.size) + location[1])
@@ -40,7 +42,7 @@ class GridWorldEnv(gym.Env):
         return([(int(state/self.size)), (state%self.size)])
     def _get_obs(self):
         #return {"agent": self._agent_location, "target": self._target_location}
-        return {"agent": self._action_to_state(self._agent_location), "vertiport_locations": [self._action_to_state(self._vertiport_locations[0]), self._action_to_state(self._vertiport_locations[1]), self._action_to_state(self._vertiport_locations[2]), self._action_to_state(self._vertiport_locations[3]) ]}
+        return {"agent": [self._action_to_state(self._agent_locations[0]), self._action_to_state(self._agent_locations[1])], "vertiport_locations": [self._action_to_state(self._vertiport_locations[0]), self._action_to_state(self._vertiport_locations[1]), self._action_to_state(self._vertiport_locations[2]), self._action_to_state(self._vertiport_locations[3]) ]}
 
     def _get_info(self):
 
@@ -50,9 +52,10 @@ class GridWorldEnv(gym.Env):
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        self.count = 0
-        self.unique_vis = []
-        self._agent_location = np.array([0, 0], dtype=int)
+        self.count = [0, 0]
+        self.unique_vis_1 = []
+        self.unique_vis_2 = []
+        self._agent_locations = np.array([self._state_to_action(0), self._state_to_action(6)], dtype=int)
         self._vertiport_locations = np.array([self._state_to_action(4), self._state_to_action(11), self._state_to_action(14), self._state_to_action(24)], dtype=int)
 
         self._target_location = np.array(self._state_to_action(10), dtype= int)
@@ -64,35 +67,50 @@ class GridWorldEnv(gym.Env):
         return observation, info
 
     def step(self, action):
-        reward = 0
-        direction = self._action_to_direction[action]
-
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
+        rewards = [0, 0]
+        direction = [0, 0]
+        direction[0] = self._action_to_direction[action[0]]
+        self._agent_locations[0] = np.clip(
+            self._agent_locations[0] + direction[0], 0, self.size - 1
+            )
+        direction[1] = self._action_to_direction[action[1]]
+        self._agent_locations[1] = np.clip(
+            self._agent_locations[1] + direction[1], 0, self.size - 1
+            )
+            
         #for i in range(4):
         terminated = False
         for i in range(4):
-            if np.array_equal(self._vertiport_locations[i], self._agent_location):
-                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis):
-                    self.count += 1
+            if np.array_equal(self._vertiport_locations[i], self._agent_locations[0]):
+                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_1):
+                    self.count[0] += 1
                     #print(self._action_to_state(self._vertiport_locations[i]))
-                    self.unique_vis.append(self._action_to_state(self._vertiport_locations[i]))
-                    reward += 1                    
+                    self.unique_vis_1.append(self._action_to_state(self._vertiport_locations[i]))
+                    rewards[0] += 1                   
+
+        for i in range(4):
+            if np.array_equal(self._vertiport_locations[i], self._agent_locations[1]):
+                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_2):
+                    self.count[1] += 1
+                    #print(self._action_to_state(self._vertiport_locations[i]))
+                    self.unique_vis_2.append(self._action_to_state(self._vertiport_locations[i]))
+                    rewards[1] += 1                    
                 
-        if self.count == 4:
+        if self.count[0] == 4:
             terminated = True
-        
-            
+
+        elif self.count[1] == 4:
+            terminated = True
         else:
-            reward -= 0.1
+            rewards[0] -= 0.1
+            rewards[1] -= 0.1
         truncated = False
         
         observation = self._get_obs()
         info = self._get_info()
         if self.render_mode == "human":
             self._render_frame()
-        return observation, reward, terminated, truncated, info
+        return observation, rewards, terminated, truncated, info
 
 
     def render(self):
@@ -153,7 +171,13 @@ class GridWorldEnv(gym.Env):
         pygame.draw.circle(
             canvas,
             (0, 0, 255),
-            (self._agent_location[::-1] + 0.5) * pix_square_size,
+            (self._agent_locations[0][::-1] + 0.5) * pix_square_size,
+            pix_square_size / 3,
+        )
+        pygame.draw.circle(
+            canvas,
+            (0, 255, 0),
+            (self._agent_locations[1][::-1] + 0.5) * pix_square_size,
             pix_square_size / 3,
         )
 
