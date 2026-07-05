@@ -5,9 +5,11 @@ import numpy as np
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from collections import defaultdict
+from gymnasium.wrappers import TimeLimit
 
 
 env = GridWorldEnv()
+env = TimeLimit(env, max_episode_steps=10000)
 obs, info = env.reset(seed=42)  
 print(f"Starting position - Agent: {obs['agent']}, Target: {obs['vertiport_locations']}")
 print(obs)
@@ -17,7 +19,7 @@ discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 10000
+num_episodes = 100000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -30,7 +32,7 @@ old_pos = [0, 0]
 action = [0, 0]
 
 def q_obs_gen(obs):
-    return((obs['agent'][0], obs['agent'][1], obs['vertiport_locations'][0], obs['vertiport_locations'][1], obs['vertiport_locations'][2], obs['vertiport_locations'][3]))
+    return((obs['agent'][0], obs['agent'][1], obs['vertiport_locations'][0], obs['vertiport_locations'][1], obs['vertiport_locations'][2], obs['vertiport_locations'][3], obs['passenger_origin'], obs['passenger_destination']))
 
 for episode in range(num_episodes):
     print(episode)
@@ -66,7 +68,7 @@ for episode in range(num_episodes):
         q_values_1[q_obs_gen(obs)][action] += (lr * temporal_difference[0])
         q_values_2[q_obs_gen(obs)][action] += (lr * temporal_difference[1])
 
-        done = terminated
+        done = terminated or truncated
         obs = next_obs
     reward_list.append(reward_count)
     reward_count = 0
@@ -101,7 +103,7 @@ while(not done):
     q_values_1[q_obs_gen(obs)][action] += (lr * temporal_difference[0])
     q_values_2[q_obs_gen(obs)][action] += (lr * temporal_difference[1])
 
-    done = terminated
+    done = terminated or truncated
     obs = next_obs
     
 

@@ -13,14 +13,17 @@ class GridWorldEnv(gym.Env):
         self._agent_locations = np.array([[-1, -1], [-1, -1]], dtype=np.int32)
         self._target_location = np.array([-1, -1], dtype=np.int32)
         self._vertiport_locations = np.array([[-1, -1],[-1, -1],[-1, -1],[-1, -1]], dtype=np.int32)
-        
+        self._passenger_path = np.array([[-1, -1], [-1, -1]], dtype=np.int32)
+
         self.observation_space = gym.spaces.Dict(
             {
                 "agent_locations": gym.spaces.Box(0, size - 1, shape=(2, 1), dtype=int),   
                 "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "vertiport_locations": gym.spaces.Box(0, size - 1, shape=(4,1), dtype=int)
+                "vertiport_locations": gym.spaces.Box(0, size - 1, shape=(4,1), dtype=int),
+                "passenger_path": gym.spaces.Box(0, size - 1, shape=(2, 1), dtype=int)
             }
         )
+
         self.action_space = gym.spaces.Discrete(4)
         self._action_to_direction = {
             0: np.array([0, 1]),   
@@ -28,6 +31,7 @@ class GridWorldEnv(gym.Env):
             2: np.array([0, -1]),  
             3: np.array([1, 0]),
             }
+
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         self.window = None
@@ -36,13 +40,15 @@ class GridWorldEnv(gym.Env):
         self.unique_vis_2 = []
         self.count = [0, 0]
 
+
     def _action_to_state(self, location):
         return((location[0] * self.size) + location[1])
     def _state_to_action(self, state):
         return([(int(state/self.size)), (state%self.size)])
+
     def _get_obs(self):
         #return {"agent": self._agent_location, "target": self._target_location}
-        return {"agent": [self._action_to_state(self._agent_locations[0]), self._action_to_state(self._agent_locations[1])], "vertiport_locations": [self._action_to_state(self._vertiport_locations[0]), self._action_to_state(self._vertiport_locations[1]), self._action_to_state(self._vertiport_locations[2]), self._action_to_state(self._vertiport_locations[3]) ]}
+        return {"agent": [self._action_to_state(self._agent_locations[0]), self._action_to_state(self._agent_locations[1])], "vertiport_locations": [self._action_to_state(self._vertiport_locations[0]), self._action_to_state(self._vertiport_locations[1]), self._action_to_state(self._vertiport_locations[2]), self._action_to_state(self._vertiport_locations[3]) ], "passenger_origin": self._action_to_state(self._passenger_path[0]), "passenger_destination": self._action_to_state(self._passenger_path[1])}
 
     def _get_info(self):
 
@@ -52,9 +58,10 @@ class GridWorldEnv(gym.Env):
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        self.count = [0, 0]
+        self.count = [0, 0, 0, 0]
         self.unique_vis_1 = []
         self.unique_vis_2 = []
+        self._passenger_path = np.array([self._state_to_action(4), self._state_to_action(24)], dtype=int)
         self._agent_locations = np.array([self._state_to_action(0), self._state_to_action(6)], dtype=int)
         self._vertiport_locations = np.array([self._state_to_action(4), self._state_to_action(11), self._state_to_action(14), self._state_to_action(24)], dtype=int)
 
@@ -80,30 +87,44 @@ class GridWorldEnv(gym.Env):
             
         #for i in range(4):
         terminated = False
-        for i in range(4):
-            if np.array_equal(self._vertiport_locations[i], self._agent_locations[0]):
-                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_1):
-                    self.count[0] += 1
-                    #print(self._action_to_state(self._vertiport_locations[i]))
-                    self.unique_vis_1.append(self._action_to_state(self._vertiport_locations[i]))
-                    rewards[0] += 1                   
-
-        for i in range(4):
-            if np.array_equal(self._vertiport_locations[i], self._agent_locations[1]):
-                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_2):
-                    self.count[1] += 1
-                    #print(self._action_to_state(self._vertiport_locations[i]))
-                    self.unique_vis_2.append(self._action_to_state(self._vertiport_locations[i]))
-                    rewards[1] += 1                    
-                
-        if self.count[0] == 4:
-            terminated = True
-
-        elif self.count[1] == 4:
-            terminated = True
+#        for i in range(4):
+#            if np.array_equal(self._vertiport_locations[i], self._agent_locations[0]):
+#                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_1):
+#                    self.count[0] += 1
+#                    #print(self._action_to_state(self._vertiport_locations[i]))
+#                    self.unique_vis_1.append(self._action_to_state(self._vertiport_locations[i]))
+#                    rewards[0] += 1                   
+#
+#        for i in range(4):
+#            if np.array_equal(self._vertiport_locations[i], self._agent_locations[1]):
+#                if(self._action_to_state(self._vertiport_locations[i]) not in self.unique_vis_2):
+#                    self.count[1] += 1
+#                    #print(self._action_to_state(self._vertiport_locations[i]))
+#                    self.unique_vis_2.append(self._action_to_state(self._vertiport_locations[i]))
+#                    rewards[1] += 1                    
+        
+        if np.array_equal(self._agent_locations[0], self._passenger_path[0]):
+            self.count[0] = 1
+            rewards[0] += 0.5
+        if self.count[0] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[1]):
+            self.count[1] = 1
+            rewards[0] += 1
         else:
-            rewards[0] -= 0.1
-            rewards[1] -= 0.1
+            rewards[0] = -0.1
+        if np.array_equal(self._agent_locations[1], self._passenger_path[0]):
+            self.count[2] = 1
+            rewards[1] += 0.5
+        if self.count[2] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[1]):
+            self.count[3] = 1
+            rewards[1] += 1
+        else:
+            rewards[1] = -0.1
+
+        if self.count[1] >= 1:
+            terminated = True
+        if self.count[3] >= 1:
+            terminated = True
+        
         truncated = False
         
         observation = self._get_obs()
@@ -167,6 +188,24 @@ class GridWorldEnv(gym.Env):
                 (pix_square_size, pix_square_size),
             ),
         )
+        pygame.draw.rect(
+            canvas,
+            (255, 255, 0),
+            pygame.Rect(
+                pix_square_size * (self._passenger_path[0])[::-1],
+                (pix_square_size, pix_square_size),
+            ),
+        )
+        pygame.draw.rect(
+            canvas,
+            (255, 0, 255),
+            pygame.Rect(
+                pix_square_size * (self._passenger_path[1])[::-1],
+                (pix_square_size, pix_square_size),
+            ),
+        )
+
+        
         # Now we draw the agent
         pygame.draw.circle(
             canvas,
