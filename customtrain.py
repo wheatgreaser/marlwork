@@ -9,17 +9,14 @@ from gymnasium.wrappers import TimeLimit
 
 
 env = GridWorldEnv()
-env = TimeLimit(env, max_episode_steps=10000)
 obs, info = env.reset(seed=42)  
-print(f"Starting position - Agent: {obs['agent']}, Target: {obs['vertiport_locations']}")
-print(obs)
 
 learning_rate = 0.9
 discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 100000
+num_episodes = 1000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -32,7 +29,7 @@ old_pos = [0, 0]
 action = [0, 0]
 
 def q_obs_gen(obs):
-    return((obs['agent'][0], obs['agent'][1], obs['vertiport_locations'][0], obs['vertiport_locations'][1], obs['vertiport_locations'][2], obs['vertiport_locations'][3], obs['passenger_origin'], obs['passenger_destination']))
+    return((obs['agent'][0], obs['agent'][1], obs['vertiport_locations'][0], obs['vertiport_locations'][1], obs['vertiport_locations'][2], obs['vertiport_locations'][3], obs['passenger_origin'][0], obs['passenger_origin'][1], obs['passenger_destination'][0], obs['passenger_destination'][1]))
 
 for episode in range(num_episodes):
     print(episode)
@@ -72,8 +69,6 @@ for episode in range(num_episodes):
         obs = next_obs
     reward_list.append(reward_count)
     reward_count = 0
-
-print(reward_list)
 
 
 done = False
