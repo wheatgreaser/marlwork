@@ -11,6 +11,7 @@ from gymnasium.wrappers import TimeLimit
 env = GridWorldEnv()
 obs, info = env.reset(seed=42)  
 
+env = TimeLimit(env, max_episode_steps = 1000)
 learning_rate = 0.9
 discount_factor = 0.9
 terminated = False
@@ -39,6 +40,7 @@ for episode in range(num_episodes):
     future_q_value = [0, 0]
     target = [0, 0]
     temporal_difference = [0, 0]
+    epsilon = max(final_epsilon, epsilon - epsilon_decay)
     while(not done):
 
         if np.random.random() < epsilon:
@@ -48,27 +50,23 @@ for episode in range(num_episodes):
             action[0] = int(np.argmax((q_values_1[q_obs_gen(obs)])))
             action[1] = int(np.argmax((q_values_2[q_obs_gen(obs)])))
 
-        epsilon = max(final_epsilon, epsilon - epsilon_decay)
         
         next_obs, rewards, terminated, truncated, info = env.step(action)
 
-        reward_count += rewards[0]
         future_q_value[0] = (not terminated) * (np.max(q_values_1[q_obs_gen(next_obs)]))
         future_q_value[1] = (not terminated) * (np.max(q_values_2[q_obs_gen(next_obs)]))
 
         target[0] = rewards[0] + discount_factor * future_q_value[0]
         target[1] = rewards[1] + discount_factor * future_q_value[1]
 
-        temporal_difference[0] = target[0] - ((q_values_1[q_obs_gen(obs)][action]))
-        temporal_difference[1] = target[1] - ((q_values_2[q_obs_gen(obs)][action]))
+        temporal_difference[0] = target[0] - ((q_values_1[q_obs_gen(obs)][action[0]]))
+        temporal_difference[1] = target[1] - ((q_values_2[q_obs_gen(obs)][action[1]]))
 
-        q_values_1[q_obs_gen(obs)][action] += (lr * temporal_difference[0])
-        q_values_2[q_obs_gen(obs)][action] += (lr * temporal_difference[1])
+        q_values_1[q_obs_gen(obs)][action[0]] += (lr * temporal_difference[0])
+        q_values_2[q_obs_gen(obs)][action[1]] += (lr * temporal_difference[1])
 
         done = terminated or truncated
         obs = next_obs
-    reward_list.append(reward_count)
-    reward_count = 0
 
 
 done = False
@@ -78,28 +76,28 @@ future_q_value = [0, 0]
 target = [0, 0]
 temporal_difference = [0, 0]
 while(not done):
-    
-    action[0] = int(np.argmax(q_values_1[q_obs_gen(obs)]))
-    action[1] = int(np.argmax(q_values_2[q_obs_gen(obs)]))
+
+    action[0] = int(np.argmax((q_values_1[q_obs_gen(obs)])))
+    action[1] = int(np.argmax((q_values_2[q_obs_gen(obs)])))
+
     next_obs, rewards, terminated, truncated, info = env.step(action)
 
-    (q_values_1[q_obs_gen(obs)][action]) = rewards[0]
-    (q_values_2[q_obs_gen(obs)][action]) = rewards[1]
-
-    future_q_value[0] = (not terminated) * (np.max((q_values_1[q_obs_gen(next_obs)])))
-    future_q_value[1] = (not terminated) * (np.max((q_values_2[q_obs_gen(next_obs)])))
+    future_q_value[0] = (not terminated) * (np.max(q_values_1[q_obs_gen(next_obs)]))
+    future_q_value[1] = (not terminated) * (np.max(q_values_2[q_obs_gen(next_obs)]))
 
     target[0] = rewards[0] + discount_factor * future_q_value[0]
     target[1] = rewards[1] + discount_factor * future_q_value[1]
 
-    temporal_difference[0] = target[0] - (q_values_1[q_obs_gen(obs)][action])
-    temporal_difference[1] = target[1] - (q_values_2[q_obs_gen(obs)][action])
+    temporal_difference[0] = target[0] - ((q_values_1[q_obs_gen(obs)][action[0]]))
+    temporal_difference[1] = target[1] - ((q_values_2[q_obs_gen(obs)][action[1]]))
 
-    q_values_1[q_obs_gen(obs)][action] += (lr * temporal_difference[0])
-    q_values_2[q_obs_gen(obs)][action] += (lr * temporal_difference[1])
+    q_values_1[q_obs_gen(obs)][action[0]] += (lr * temporal_difference[0])
+    q_values_2[q_obs_gen(obs)][action[1]] += (lr * temporal_difference[1])
 
     done = terminated or truncated
     obs = next_obs
+
+    
     
 
 
