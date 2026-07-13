@@ -86,9 +86,9 @@ def replay():
 
     # Target Q values
     next_q_1 = target_net_1(next_states).max(1)[0].detach().unsqueeze(1)
-    target_q_1 = rewards + (gamma * next_q_1 * (1 - dones))
+    target_q_1 = rewards[0] + (gamma * next_q_1 * (1 - dones))
     next_q_2 = target_net_2(next_states).max(1)[0].detach().unsqueeze(1)
-    target_q_2 = rewards + (gamma * next_q_2 * (1 - dones))
+    target_q_2 = rewards[1] + (gamma * next_q_2 * (1 - dones))
 
     loss_1 = loss_fn(current_q_1, target_q_1)
     loss_2 = loss_fn(current_q_2, target_q_2)
@@ -123,6 +123,7 @@ for episode in range(episodes):
         memory.append((state, action, reward, next_state, done))
         state = next_state
         total_reward += reward[0]
+        total_reward += reward[1]
 
         replay()
         if done:
@@ -132,6 +133,8 @@ for episode in range(episodes):
         epsilon *= epsilon_decay
 
     if episode % target_update_freq == 0:
-        target_net.load_state_dict(policy_net.state_dict())
+        target_net_1.load_state_dict(policy_net_1.state_dict())
+        target_net_2.load_state_dict(policy_net_2.state_dict())
 
     print(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.3f}")
+
