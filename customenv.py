@@ -19,6 +19,7 @@ class GridWorldEnv(gym.Env):
         self.revenue = [0, 0]
         self.profit = [0, 0]
         self.queue_length = 1000
+        self._passenger_cap = 2
         self.observation_space = gym.spaces.Dict(
             {
                 "agent_locations": gym.spaces.Box(0, size - 1, shape=(2, 2), dtype=int),   
@@ -52,13 +53,6 @@ class GridWorldEnv(gym.Env):
 
 
     def _get_obs(self):
-        #return {"agent": self._agent_location, "target": self._target_location}
-        passenger_origin = []
-        passenger_dest = []
-
-        for i in range(2):
-            passenger_origin.append(self._action_to_state(self._passenger_path[i][0]))
-            passenger_dest.append(self._action_to_state(self._passenger_path[i][1]))
         return np.concatenate([
     np.array([
         self._action_to_state(self._agent_locations[0]),
@@ -68,6 +62,11 @@ class GridWorldEnv(gym.Env):
         self._action_to_state(v)
         for v in self._vertiport_locations
     ]),
+    np.array([
+        self._action_to_state(x)
+        for path in self._passenger_path
+        for x in path
+        ]),
     self._passenger_path.flatten()
 ])
     def _get_info(self):
@@ -81,9 +80,12 @@ class GridWorldEnv(gym.Env):
         self.cost = [0, 0]
         self.revenue = [0, 0]
         self.distance_carried = [0, 0]
-        self.pickedup = [0, 0, 0, 0]
-        self.droppedoff = [0, 0, 0, 0]
+        self.pickedup1 = [0, 0]
+        self.pickedup2 = [0, 0]
+        self.droppedoff1 = [0, 0]
+        self.droppedoff2 = [0, 0]
         self.randintlist = []
+        self.count = [0, 0]
         self.vertlocs = [4, 12, 16, 24]
         while(len(self.randintlist) < 4):
             x = random.randint(0,3)
@@ -92,7 +94,6 @@ class GridWorldEnv(gym.Env):
         self._passenger_path = np.array([[self._state_to_action(self.vertlocs[self.randintlist[0]]), self._state_to_action(self.vertlocs[self.randintlist[1]])], [self._state_to_action(self.vertlocs[self.randintlist[2]]), self._state_to_action(self.vertlocs[self.randintlist[3]])]], dtype=int)
         self._agent_locations = np.array([self._state_to_action(0), self._state_to_action(6)], dtype=int)
         self._vertiport_locations = np.array([self._state_to_action(4), self._state_to_action(12), self._state_to_action(16), self._state_to_action(24)], dtype=int)
-
         observation = self._get_obs()
         info = self._get_info()
         if self.render_mode == "human":
@@ -107,24 +108,16 @@ class GridWorldEnv(gym.Env):
         while randval2 == randval1:
             randval2 = random.randint(0, 3)
         if flip == 1:
-            self._passenger_path = np.vstack((self._passenger_path, (np.array([self._state_to_action(self.randintlist[randval1]), self._state_to_action(self.randintlist[randval2])])[np.newaxis])))
+            self._passenger_path = np.vstack((self._passenger_path, np.vstack((self._state_to_action(self.vertlocs[self.randintlist[randval1]]),self._state_to_action(self.vertlocs[self.randintlist[randval2]])))))
+            self.pickedup1.append(0)
+            self.droppedoff1.append(0)
+            self.pickedup2.append(0)
+            self.droppedoff2.append(0)
+
 
     def step(self, action):
-        self.cost[0] += 1
-        self.cost[1] += 1
-        if (self.pickedup[0] and not self.droppedoff[0]) or (self.pickedup[1] and not self.droppedoff[1]):
-            if(self.pickedup[0] and self.pickedup[1]):
-                self.revenue[0] += 2 * 1.2
-            else:
-                self.revenue[0] += 1.2
-
-        if (self.pickedup[2] and not self.droppedoff[2]) or (self.pickedup[3] and not self.droppedoff[3]):
-            if(self.pickedup[2] and self.pickedup[3]):
-                self.revenue[1] += 2 * 1.2
-            else:
-                self.revenue[1] += 1.2
-            
-        rewards = [0, 0]
+        self._demand_generation()
+        rewards = [-0.1, -0.1]
         direction = [0, 0]
         direction[0] = self._action_to_direction[action[0]]
         self._agent_locations[0] = np.clip(
@@ -151,53 +144,30 @@ class GridWorldEnv(gym.Env):
 #                    self.count[1] += 1
 #                    #print(self._action_to_state(self._vertiport_locations[i]))
 #                    self.unique_vis_2.append(self._action_to_state(self._vertiport_locations[i]))
-#                    rewards[1] += 1                   
-        
-        if np.array_equal(self._agent_locations[0], self._passenger_path[0][0]) and (self.pickedup[2] == 0) and (self.droppedoff[2] == 0) and (self.droppedoff[0] == 0):
-            self.pickedup[0] = 1
-            rewards[0] += 0.5
-        if np.array_equal(self._agent_locations[0], self._passenger_path[1][0]) and (self.pickedup[3] == 0) and (self.droppedoff[3] == 0) and (self.droppedoff[1] == 0):
-            rewards[0] += 0.5
-            self.pickedup[1] = 1
-        if self.pickedup[0] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[0][1]):
-            self.droppedoff[0] = 1
-            rewards[0] += 1
-        if self.pickedup[1] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[1][1]):
-            self.droppedoff[1] = 1
-            rewards[0] += 1
 
-        else:
-            rewards[0] = -0.01
-        if np.array_equal(self._agent_locations[1], self._passenger_path[0][0]) and (self.pickedup[0] == 0) and (self.droppedoff[0] == 0) and (self.droppedoff[2] == 0):
-            rewards[1] += 0.5
-            self.pickedup[2] = 1
-        if self.pickedup[2] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[0][1]):
-            self.droppedoff[2] = 1
-            rewards[1] += 1
-        if np.array_equal(self._agent_locations[1], self._passenger_path[1][0]) and (self.pickedup[1] == 0) and (self.droppedoff[1] == 0) and (self.droppedoff[3] == 0):
-            rewards[1] += 0.5
-            self.pickedup[3] = 1
-        if self.pickedup[3] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[1][1]):
-            self.droppedoff[3] = 1
-            self.pickedup[3] = 0
-            rewards[1] += 1
-        else:
-            rewards[1] = -0.01
-        if (self.droppedoff[0] == 1 and self.droppedoff[1] == 1):
-            print(self.cost)
-            print(self.revenue)
-            terminated = True
-        if (self.droppedoff[1] == 1 and self.droppedoff[2] == 1):
-            print(self.cost)
-            print(self.revenue)
-            terminated = True
-        if (self.droppedoff[2] == 1 and self.droppedoff[3] == 1):
-            print(self.cost)
-            print(self.revenue)
-            terminated = True
-        if (self.droppedoff[3] == 1 and self.droppedoff[0] == 1):
-            print(self.cost)
-            print(self.revenue)
+        for i in range(len(self._passenger_path)): 
+            if np.array_equal(self._agent_locations[0], self._passenger_path[i][0]) and (self.pickedup1[i] == 0) and (self.pickedup2[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0):
+                self.pickedup1[i] = 1
+                rewards[0] += 0.5
+        for i in range(len(self._passenger_path)): 
+            if self.pickedup1[i] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[i][1]):
+                self.droppedoff1[i] = 1
+                self.pickedup1[0] = 0
+                rewards[0] += 1
+
+        for i in range(len(self._passenger_path)): 
+            if np.array_equal(self._agent_locations[1], self._passenger_path[i][0]) and (self.pickedup2[i] == 0) and (self.pickedup1[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0):
+                self.pickedup2[i] = 1
+                rewards[1] += 0.5
+        for i in range(len(self._passenger_path)): 
+            if self.pickedup2[i] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[i][1]):
+                self.droppedoff2[i] = 1
+                self.pickedup2[i] = 0
+                rewards[1] += 1
+        
+        self.count[0] = sum(self.droppedoff1)
+        self.count[1] = sum(self.droppedoff2)
+        if self.count[0] == 2 or self.count[1] == 2 or ((self.count[0] == 1) and (self.count[1] == 1)):
             terminated = True
         truncated = False
         

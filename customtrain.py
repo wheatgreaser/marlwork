@@ -6,7 +6,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 from collections import defaultdict
 from gymnasium.wrappers import TimeLimit
-
+import pandas as pd
 
 env = GridWorldEnv()
 obs, info = env.reset(seed=42)  
@@ -17,7 +17,7 @@ discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 1000
+num_episodes = 100000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -30,15 +30,14 @@ old_pos = [0, 0]
 action = [0, 0]
 
 def q_obs_gen(obs):
-    return((obs['agent'][0], obs['agent'][1], obs['vertiport_locations'][0], obs['vertiport_locations'][1], obs['vertiport_locations'][2], obs['vertiport_locations'][3], obs['passenger_origin'][0], obs['passenger_origin'][1], obs['passenger_destination'][0], obs['passenger_destination'][1]))
-
+    return(tuple(obs))
 for episode in range(num_episodes):
     print(episode)
     obs, info = env.reset()
-    print(obs)
     done = False
     future_q_value = [0, 0]
     target = [0, 0]
+    total_reward = 0
     temporal_difference = [0, 0]
     epsilon = max(final_epsilon, epsilon - epsilon_decay)
     while(not done):
@@ -64,10 +63,17 @@ for episode in range(num_episodes):
 
         q_values_1[q_obs_gen(obs)][action[0]] += (lr * temporal_difference[0])
         q_values_2[q_obs_gen(obs)][action[1]] += (lr * temporal_difference[1])
-
+        total_reward += rewards[0] 
         done = terminated or truncated
         obs = next_obs
+    reward_list.append(total_reward)
+    print(total_reward)
+df = pd.DataFrame({'Reward': reward_list})
+df['rolling_av'] = df.Reward.rolling(100).mean()
+fig, ax = plt.subplots()
 
+ax.plot(list(range(1,(num_episodes+1))), df['rolling_av'])
+plt.show()
 
 done = False
 env = GridWorldEnv(render_mode="human")

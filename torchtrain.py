@@ -5,7 +5,9 @@ from collections import deque
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from customenv import GridWorldEnv
 
 
@@ -23,7 +25,7 @@ class DQN(nn.Module):
 
 env = GridWorldEnv()
 
-state_size = 14
+state_size = 18
 action_size = 4
 
 gamma = 0.99             
@@ -33,7 +35,9 @@ epsilon_decay = 0.995
 learning_rate = 0.001
 batch_size = 64
 memory_size = 10000
-
+start_epsilon = 1.0
+num_episodes = 500
+epsilon_decay = (start_epsilon) / (num_episodes)
 memory = deque(maxlen=memory_size)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,7 +63,7 @@ def get_action(state, epsilon):
     if random.random() < epsilon:
         return [random.choice(range(action_size)), random.choice(range(action_size))] 
     else:
-        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        state = torch.FloatTensor(state).to(device)
         with torch.no_grad():
             q_values_1 = policy_net_1(state)
             q_values_2 = policy_net_2(state)
@@ -73,22 +77,25 @@ def replay():
 
     states, actions, rewards, next_states, dones = zip(*minibatch)
 
-
     states = torch.FloatTensor(states).to(device)
     actions = torch.LongTensor(actions).to(device)
-    rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
+    rewards = torch.FloatTensor(rewards).to(device)
     next_states = torch.FloatTensor(next_states).to(device)
     dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
 
-    # Current Q values
-    current_q_1 = policy_net_1(states).gather(1, actions)
-    current_q_2 = policy_net_2(states).gather(1, actions)
+    actions1 = actions[:, 0].unsqueeze(1)
+    actions2 = actions[:, 1].unsqueeze(1)
 
-    # Target Q values
+    current_q_1 = policy_net_1(states).gather(1, actions1)
+    current_q_2 = policy_net_2(states).gather(1, actions2)
+
+    rewards1 = rewards[:, 0].unsqueeze(1)
+    rewards2 = rewards[:, 1].unsqueeze(1)
     next_q_1 = target_net_1(next_states).max(1)[0].detach().unsqueeze(1)
-    target_q_1 = rewards[0] + (gamma * next_q_1 * (1 - dones))
+    target_q_1 = rewards1 + (gamma * next_q_1 * (1 - dones))
+
     next_q_2 = target_net_2(next_states).max(1)[0].detach().unsqueeze(1)
-    target_q_2 = rewards[1] + (gamma * next_q_2 * (1 - dones))
+    target_q_2 = rewards2 + (gamma * next_q_2 * (1 - dones))
 
     loss_1 = loss_fn(current_q_1, target_q_1)
     loss_2 = loss_fn(current_q_2, target_q_2)
@@ -101,11 +108,11 @@ def replay():
     optimizer_1.step()
     optimizer_2.step()
 
-
-episodes = 500
+final_epsilon = 0.0
 target_update_freq = 10
-
-for episode in range(episodes):
+epsilon_decay_2 = 0.995
+reward_list = []
+for episode in range(num_episodes):
     reset_result = env.reset()
     state = reset_result[0]
     total_reward = 0
@@ -119,22 +126,46 @@ for episode in range(episodes):
             done = terminated or truncated
         else:
             next_state, reward, done, _ = step_result
-
         memory.append((state, action, reward, next_state, done))
         state = next_state
         total_reward += reward[0]
         total_reward += reward[1]
-
         replay()
         if done:
             break
+    
+    reward_list.append(total_reward)
 
-    if epsilon > epsilon_min:
-        epsilon *= epsilon_decay
 
+    epsilon = max(final_epsilon, epsilon * epsilon_decay_2)
     if episode % target_update_freq == 0:
         target_net_1.load_state_dict(policy_net_1.state_dict())
         target_net_2.load_state_dict(policy_net_2.state_dict())
 
     print(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.3f}")
 
+
+
+df = pd.DataFrame({'Reward': reward_list})
+df['rolling_av'] = df.Reward.rolling(10).mean()
+fig, ax = plt.subplots()
+
+ax.plot(list(range(1,(num_episodes+1))), df['rolling_av'])
+plt.show()
+
+
+env = GridWorldEnv(render_mode="human")
+reset_result = env.reset()
+state = reset_result[0]
+total_reward = 0
+while(not done):
+
+    action = get_action(state, epsilon)
+    step_result = env.step(action)
+
+    if len(step_result) == 5:
+        next_state, reward, terminated, truncated, _ = step_result
+        done = terminated or truncated
+    else:
+        next_state, reward, done, _ = step_result
+    state = next_state
