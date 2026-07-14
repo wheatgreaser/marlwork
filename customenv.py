@@ -108,7 +108,7 @@ class GridWorldEnv(gym.Env):
         while randval2 == randval1:
             randval2 = random.randint(0, 3)
         if flip == 1:
-            self._passenger_path = np.vstack((self._passenger_path, np.vstack((self._state_to_action(self.vertlocs[self.randintlist[randval1]]),self._state_to_action(self.vertlocs[self.randintlist[randval2]])))))
+            self._passenger_path = np.vstack((self._passenger_path, np.array([[self._state_to_action(self.vertlocs[randval1]), self._state_to_action(self.vertlocs[randval2])]])))
             self.pickedup1.append(0)
             self.droppedoff1.append(0)
             self.pickedup2.append(0)
@@ -146,17 +146,17 @@ class GridWorldEnv(gym.Env):
 #                    self.unique_vis_2.append(self._action_to_state(self._vertiport_locations[i]))
 
         for i in range(len(self._passenger_path)): 
-            if np.array_equal(self._agent_locations[0], self._passenger_path[i][0]) and (self.pickedup1[i] == 0) and (self.pickedup2[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0):
+            if np.array_equal(self._agent_locations[0], self._passenger_path[i][0]) and (self.pickedup1[i] == 0) and (self.pickedup2[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0) and (sum(self.pickedup1) < 3):
                 self.pickedup1[i] = 1
                 rewards[0] += 0.5
         for i in range(len(self._passenger_path)): 
             if self.pickedup1[i] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[i][1]):
                 self.droppedoff1[i] = 1
-                self.pickedup1[0] = 0
+                self.pickedup1[i] = 0
                 rewards[0] += 1
 
         for i in range(len(self._passenger_path)): 
-            if np.array_equal(self._agent_locations[1], self._passenger_path[i][0]) and (self.pickedup2[i] == 0) and (self.pickedup1[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0):
+            if np.array_equal(self._agent_locations[1], self._passenger_path[i][0]) and (self.pickedup2[i] == 0) and (self.pickedup1[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0) and (sum(self.pickedup2) < 3):
                 self.pickedup2[i] = 1
                 rewards[1] += 0.5
         for i in range(len(self._passenger_path)): 
@@ -167,8 +167,9 @@ class GridWorldEnv(gym.Env):
         
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)
-        if self.count[0] == 2 or self.count[1] == 2 or ((self.count[0] == 1) and (self.count[1] == 1)):
+        if self.count[0] >= 1 or self.count[1] >= 1:
             terminated = True
+
         truncated = False
         
         observation = self._get_obs()

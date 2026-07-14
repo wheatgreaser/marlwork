@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from customenv import GridWorldEnv
+from gymnasium.wrappers import TimeLimit
 
 
 class DQN(nn.Module):
@@ -23,8 +24,10 @@ class DQN(nn.Module):
         x = torch.relu(self.fc2(x))
         return self.fc3(x)
 
-env = GridWorldEnv()
 
+
+
+env = GridWorldEnv()
 state_size = 18
 action_size = 4
 
@@ -36,7 +39,7 @@ learning_rate = 0.001
 batch_size = 64
 memory_size = 10000
 start_epsilon = 1.0
-num_episodes = 500
+num_episodes = 1000
 epsilon_decay = (start_epsilon) / (num_episodes)
 memory = deque(maxlen=memory_size)
 
@@ -76,8 +79,8 @@ def replay():
     minibatch = random.sample(memory, batch_size)
 
     states, actions, rewards, next_states, dones = zip(*minibatch)
-
     states = torch.FloatTensor(states).to(device)
+    
     actions = torch.LongTensor(actions).to(device)
     rewards = torch.FloatTensor(rewards).to(device)
     next_states = torch.FloatTensor(next_states).to(device)
@@ -109,7 +112,7 @@ def replay():
     optimizer_2.step()
 
 final_epsilon = 0.0
-target_update_freq = 10
+target_update_freq = 100
 epsilon_decay_2 = 0.995
 reward_list = []
 for episode in range(num_episodes):
@@ -117,7 +120,7 @@ for episode in range(num_episodes):
     state = reset_result[0]
     total_reward = 0
 
-    for t in range(500):
+    for t in range(10):
         action = get_action(state, epsilon)
         step_result = env.step(action)
 
@@ -158,9 +161,12 @@ env = GridWorldEnv(render_mode="human")
 reset_result = env.reset()
 state = reset_result[0]
 total_reward = 0
-while(not done):
+reset_result = env.reset()
+state = reset_result[0]
+total_reward = 0
 
-    action = get_action(state, epsilon)
+for t in range(10):
+    action = get_action(state, 0)
     step_result = env.step(action)
 
     if len(step_result) == 5:
@@ -168,4 +174,16 @@ while(not done):
         done = terminated or truncated
     else:
         next_state, reward, done, _ = step_result
+    memory.append((state, action, reward, next_state, done))
     state = next_state
+    total_reward += reward[0]
+    total_reward += reward[1]
+    replay()
+    if done:
+        break
+
+reward_list.append(total_reward)
+
+print(f"Episode final, Total Reward: {total_reward}, Epsilon: 0")
+
+

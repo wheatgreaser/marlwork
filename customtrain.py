@@ -17,7 +17,7 @@ discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 100000
+num_episodes = 1000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 
