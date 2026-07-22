@@ -66,8 +66,7 @@ class GridWorldEnv(gym.Env):
         self._action_to_state(x)
         for path in self._passenger_path
         for x in path
-        ]),
-    self._passenger_path.flatten()
+        ])
 ])
     def _get_info(self):
 
@@ -148,17 +147,16 @@ class GridWorldEnv(gym.Env):
         for i in range(len(self._passenger_path)): 
             if np.array_equal(self._agent_locations[0], self._passenger_path[i][0]) and (self.pickedup1[i] == 0) and (self.pickedup2[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0) and (sum(self.pickedup1) < 3):
                 self.pickedup1[i] = 1
-                rewards[0] += 0.5
         for i in range(len(self._passenger_path)): 
             if self.pickedup1[i] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[i][1]):
                 self.droppedoff1[i] = 1
                 self.pickedup1[i] = 0
                 rewards[0] += 1
+            
 
         for i in range(len(self._passenger_path)): 
             if np.array_equal(self._agent_locations[1], self._passenger_path[i][0]) and (self.pickedup2[i] == 0) and (self.pickedup1[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0) and (sum(self.pickedup2) < 3):
                 self.pickedup2[i] = 1
-                rewards[1] += 0.5
         for i in range(len(self._passenger_path)): 
             if self.pickedup2[i] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[i][1]):
                 self.droppedoff2[i] = 1
@@ -167,7 +165,8 @@ class GridWorldEnv(gym.Env):
         
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)
-        if self.count[0] >= 1 or self.count[1] >= 1:
+        if sum(self.count) >= 3:
+            print(self.count)
             terminated = True
 
         truncated = False
