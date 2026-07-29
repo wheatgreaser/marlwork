@@ -45,6 +45,7 @@ class GridWorldEnv(gym.Env):
         self.unique_vis_2 = []
         self.flags = []
         self.randintlist = []
+        self.reward_list = []
 
     def _action_to_state(self, location):
         return((location[0] * self.size) + location[1])
@@ -77,6 +78,7 @@ class GridWorldEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
         self.cost = [0, 0]
+        self.ep_reward = 0
         self.revenue = [0, 0]
         self.distance_carried = [0, 0]
         self.pickedup1 = [0, 0]
@@ -165,12 +167,11 @@ class GridWorldEnv(gym.Env):
         
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)
-        if sum(self.count) >= 3:
-            print(self.count)
+        self.ep_reward += sum(rewards)
+        if sum(self.count) >= 1:
+            self.reward_list.append(self.ep_reward)
             terminated = True
-
         truncated = False
-        
         observation = self._get_obs()
         info = self._get_info()
         if self.render_mode == "human":

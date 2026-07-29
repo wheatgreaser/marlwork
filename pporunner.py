@@ -7,12 +7,14 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from gymnasium.wrappers import TimeLimit
 
-env = GridWorldEnv()
-env = TimeLimit(env, max_episode_steps = 1000)
-model = PPO("MultiInputPolicy", env, verbose=1)
-model.learn(total_timesteps=100000)
-model.save("ppo_cold_model")
+env = GridWorldEnv(render_mode="human")
+env = TimeLimit(env, max_episode_steps=100)
+check_env(env)
 
-
-
+model = PPO.load("ppo_cold_model")
+obs, info = env.reset()
+done = False
+while not done:
+    action, _states = model.predict(obs)
+    next_obs, rewards, terminated, truncated, info = env.step(action)
 

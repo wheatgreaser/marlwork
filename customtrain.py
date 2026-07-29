@@ -11,13 +11,13 @@ import pandas as pd
 env = GridWorldEnv()
 obs, info = env.reset(seed=42)  
 
-env = TimeLimit(env, max_episode_steps = 1000)
+env = TimeLimit(env, max_episode_steps = 100)
 learning_rate = 0.9
 discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 1000
+num_episodes = 20000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 

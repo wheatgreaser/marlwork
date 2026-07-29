@@ -28,8 +28,8 @@ class DeepSet(nn.Module):
     def __init__(self):
         super(DeepSet, self).__init__()
         self.fc1 = nn.Linear(2, 10)
-        self.fc2 = nn.Linear(10, 10)
-        self.fc3 = nn.Linear(10, 10)
+        self.fc2 = nn.Linear(10, 20)
+        self.fc3 = nn.Linear(20, 40)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -49,7 +49,7 @@ learning_rate = 0.001
 batch_size = 64
 memory_size = 10000
 start_epsilon = 1.0
-num_episodes = 1000
+num_episodes = 100
 epsilon_decay = (start_epsilon) / (num_episodes/2)
 memory = deque(maxlen=memory_size)
 
@@ -74,12 +74,11 @@ optimizer_2 = optim.Adam(policy_net_2.parameters(), lr=learning_rate)
 loss_fn = nn.MSELoss()
 action = [0, 0]
 def get_action(state, epsilon):
-    state = statechanger(state)
+    state = statechanger(state).to(device)
     if random.random() < epsilon:
         return [random.choice(range(action_size)), random.choice(range(action_size))] 
     else:
         with torch.no_grad():
-            state = torch.FloatTensor(state).to(device)
             q_values_1 = policy_net_1(state)
             q_values_2 = policy_net_2(state)
         return [q_values_1.argmax().item(), q_values_2.argmax().item()]   
@@ -90,14 +89,15 @@ def replay():
     minibatch = random.sample(memory, batch_size)
 
     states, actions, rewards, next_states, dones = zip(*minibatch)
-    states_changed = torch.empty((64, 16))
-    next_states_changed = torch.empty((64, 16))
+    stateboy = torch.FloatTensor(states).to(device)
+    print(stateboy.size())
+    states_changed = torch.empty((64, 16)).to(device)
+    next_states_changed = torch.empty((64, 16)).to(device)
     for i in range(64):
         states_changed[i] = statechanger(states[i])
+        next_states_changed[i] = statechanger(next_states[i])
     actions = torch.LongTensor(actions).to(device)
     rewards = torch.FloatTensor(rewards).to(device)
-    for i in range(64):
-        next_states_changed[i] = statechanger(next_states[i])
     dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
     actions1 = actions[:, 0].unsqueeze(1)
     actions2 = actions[:, 1].unsqueeze(1)
@@ -131,16 +131,16 @@ epsilon_decay_2 = 0.995
 reward_list = []
 
 def statechanger(state):
-    embed_list = torch.FloatTensor()
-    final_vec = torch.FloatTensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    embed_list = torch.FloatTensor().to(device)
+    final_vec = torch.FloatTensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).to(device)
     for i in range(0, (len(state)-6), 2):
-        pass_path = torch.FloatTensor(state[i+6:i+8])
-        embed_list = torch.cat((embed_list, deep_set_net(pass_path)))
+        pass_path = torch.FloatTensor(state[i+6:i+8]).to(device)
+        embed_list = torch.cat((embed_list, deep_set_net(pass_path))).to(device)
     for i in range(0, len(embed_list), 10):
         final_vec += embed_list[i:i+10]
 
-    state = torch.FloatTensor(state).to(device)
-    state = torch.cat((state[:6], final_vec))
+    state = torch.Tensor(state).to(device)
+    state = torch.cat((state[:6], final_vec)).to(device)
     return state
 
 for episode in range(num_episodes):
@@ -158,6 +158,7 @@ for episode in range(num_episodes):
         else:
             next_state, reward, done, _ = step_result
         memory.append((state, action, reward, next_state, done))
+        state = next_state
         total_reward += reward[0]
         total_reward += reward[1]
         replay()
@@ -189,7 +190,7 @@ reset_result = env.reset()
 state = reset_result[0]
 total_reward = 0
 
-
+flag = False
 while(not flag):
     action = get_action(state, epsilon)
     step_result = env.step(action)
@@ -200,6 +201,7 @@ while(not flag):
     else:
         next_state, reward, done, _ = step_result
     memory.append((state, action, reward, next_state, done))
+    state = next_state
     total_reward += reward[0]
     total_reward += reward[1]
     replay()

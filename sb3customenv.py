@@ -164,8 +164,7 @@ class GridWorldEnv(gym.Env):
         
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)
-        if sum(self.count) >= 3:
-            print(self.count)
+        if sum(self.count) == 2:
             terminated = True
 
         truncated = False
@@ -175,7 +174,7 @@ class GridWorldEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        rewards = sum(rewards)
+        rewards = rewards[0]
         return observation, rewards, terminated, truncated, info
 
     def render(self):
