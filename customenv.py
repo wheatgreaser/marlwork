@@ -54,21 +54,25 @@ class GridWorldEnv(gym.Env):
 
 
     def _get_obs(self):
-        return np.concatenate([
-    np.array([
-        self._action_to_state(self._agent_locations[0]),
-        self._action_to_state(self._agent_locations[1]),
-    ]),
-    np.array([
-        self._action_to_state(v)
-        for v in self._vertiport_locations
-    ]),
-    np.array([
-        self._action_to_state(x)
-        for path in self._passenger_path
-        for x in path
-        ])
-])
+        
+        obs_array = np.concatenate([
+        np.array([
+            self._action_to_state(self._agent_locations[0]),
+            self._action_to_state(self._agent_locations[1]),
+        ]),
+        np.array([
+            self._action_to_state(v)
+            for v in self._vertiport_locations
+        ]),
+        np.array([
+            self._action_to_state(x)
+            for path in self._passenger_path
+            for x in path
+            ])
+    ])
+        while(obs_array.size < 100):
+            obs_array = np.concatenate([obs_array, np.array([0])])
+        return obs_array 
     def _get_info(self):
 
         return {
@@ -153,7 +157,7 @@ class GridWorldEnv(gym.Env):
             if self.pickedup1[i] == 1 and np.array_equal(self._agent_locations[0], self._passenger_path[i][1]):
                 self.droppedoff1[i] = 1
                 self.pickedup1[i] = 0
-                rewards[0] += 1
+                rewards[0] += 10
             
 
         for i in range(len(self._passenger_path)): 
@@ -163,7 +167,7 @@ class GridWorldEnv(gym.Env):
             if self.pickedup2[i] == 1 and np.array_equal(self._agent_locations[1], self._passenger_path[i][1]):
                 self.droppedoff2[i] = 1
                 self.pickedup2[i] = 0
-                rewards[1] += 1
+                rewards[1] += 10
         
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)

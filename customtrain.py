@@ -17,7 +17,7 @@ discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
 lr = 0.01
-num_episodes = 20000
+num_episodes = 10000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -32,7 +32,6 @@ action = [0, 0]
 def q_obs_gen(obs):
     return(tuple(obs))
 for episode in range(num_episodes):
-    print(episode)
     obs, info = env.reset()
     done = False
     future_q_value = [0, 0]
@@ -40,8 +39,9 @@ for episode in range(num_episodes):
     total_reward = 0
     temporal_difference = [0, 0]
     epsilon = max(final_epsilon, epsilon - epsilon_decay)
+    print(episode)
     while(not done):
-
+    
         if np.random.random() < epsilon:
             action[0] = env.action_space.sample()
             action[1] = env.action_space.sample()

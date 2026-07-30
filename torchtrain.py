@@ -38,23 +38,22 @@ class DeepSet(nn.Module):
 
 env = GridWorldEnv()
 env = TimeLimit(env, max_episode_steps = 100)
-state_size = 16
+state_size = 100
 action_size = 4
 
 gamma = 0.99             
 epsilon = 1.0           
 epsilon_min = 0.01
 epsilon_decay = 0.995
-learning_rate = 0.001
+learning_rate = 0.1
 batch_size = 64
 memory_size = 10000
 start_epsilon = 1.0
-num_episodes = 100
+num_episodes = 1000
 epsilon_decay = (start_epsilon) / (num_episodes/2)
 memory = deque(maxlen=memory_size)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
 deep_set_net = DeepSet().to(device)
 
 policy_net_1 = DQN(state_size, action_size).to(device)
@@ -74,7 +73,8 @@ optimizer_2 = optim.Adam(policy_net_2.parameters(), lr=learning_rate)
 loss_fn = nn.MSELoss()
 action = [0, 0]
 def get_action(state, epsilon):
-    state = statechanger(state).to(device)
+    #state = statechanger(state).to(device)
+    state = torch.FloatTensor(state).to(device)
     if random.random() < epsilon:
         return [random.choice(range(action_size)), random.choice(range(action_size))] 
     else:
@@ -89,27 +89,27 @@ def replay():
     minibatch = random.sample(memory, batch_size)
 
     states, actions, rewards, next_states, dones = zip(*minibatch)
-    stateboy = torch.FloatTensor(states).to(device)
-    print(stateboy.size())
-    states_changed = torch.empty((64, 16)).to(device)
-    next_states_changed = torch.empty((64, 16)).to(device)
-    for i in range(64):
-        states_changed[i] = statechanger(states[i])
-        next_states_changed[i] = statechanger(next_states[i])
+    states = torch.FloatTensor(states).to(device)
+    next_states = torch.FloatTensor(next_states).to(device)
+    #states_changed = torch.empty((64, 16)).to(device)
+    #next_states_changed = torch.empty((64, 16)).to(device)
+#    for i in range(64):
+#        states_changed[i] = statechanger(states[i])
+#        next_states_changed[i] = statechanger(next_states[i])
     actions = torch.LongTensor(actions).to(device)
     rewards = torch.FloatTensor(rewards).to(device)
     dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
     actions1 = actions[:, 0].unsqueeze(1)
     actions2 = actions[:, 1].unsqueeze(1)
-    current_q_1 = policy_net_1(states_changed).gather(1, actions1)
-    current_q_2 = policy_net_2(states_changed).gather(1, actions2)
+    current_q_1 = policy_net_1(states).gather(1, actions1) #changed shit here
+    current_q_2 = policy_net_2(states).gather(1, actions2)
 
     rewards1 = rewards[:, 0].unsqueeze(1)
     rewards2 = rewards[:, 1].unsqueeze(1)
-    next_q_1 = target_net_1(next_states_changed).max(1)[0].detach().unsqueeze(1)
+    next_q_1 = target_net_1(next_states).max(1)[0].detach().unsqueeze(1)
     target_q_1 = rewards1 + (gamma * next_q_1 * (1 - dones))
 
-    next_q_2 = target_net_2(next_states_changed).max(1)[0].detach().unsqueeze(1)
+    next_q_2 = target_net_2(next_states).max(1)[0].detach().unsqueeze(1)
     target_q_2 = rewards2 + (gamma * next_q_2 * (1 - dones))
 
     loss_1 = loss_fn(current_q_1, target_q_1)
