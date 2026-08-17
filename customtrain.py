@@ -16,7 +16,7 @@ learning_rate = 0.9
 discount_factor = 0.9
 terminated = False
 start_epsilon = 1.0
-lr = 0.01
+lr = 0.05
 num_episodes = 10000
 q_values_1 = defaultdict(lambda: np.zeros(env.action_space.n))
 q_values_2 = defaultdict(lambda: np.zeros(env.action_space.n))
@@ -28,7 +28,7 @@ reward_count = 0
 epsilon = start_epsilon
 old_pos = [0, 0]
 action = [0, 0]
-
+travel_time_1 = []
 def q_obs_gen(obs):
     return(tuple(obs))
 for episode in range(num_episodes):
@@ -51,7 +51,6 @@ for episode in range(num_episodes):
 
         
         next_obs, rewards, terminated, truncated, info = env.step(action)
-
         future_q_value[0] = (not terminated) * (np.max(q_values_1[q_obs_gen(next_obs)]))
         future_q_value[1] = (not terminated) * (np.max(q_values_2[q_obs_gen(next_obs)]))
 
@@ -65,11 +64,17 @@ for episode in range(num_episodes):
         q_values_2[q_obs_gen(obs)][action[1]] += (lr * temporal_difference[1])
         total_reward += rewards[0] 
         done = terminated or truncated
+        if done:
+            print(f"mean travel time: {sum(info)/len(info)}")
+            travel_time_1.append(sum(info)/len(info))
         obs = next_obs
     reward_list.append(total_reward)
-    print(total_reward)
-df = pd.DataFrame({'Reward': reward_list})
-df['rolling_av'] = df.Reward.rolling(100).mean()
+    print(f"Reward: {total_reward}")
+
+mean_travel_time = np.array(travel_time_1)
+np.save('mean_travel_time.npy', mean_travel_time)
+df = pd.DataFrame({'travel_time': travel_time_1})
+df['rolling_av'] = df.travel_time.rolling(100).mean()
 fig, ax = plt.subplots()
 
 ax.plot(list(range(1,(num_episodes+1))), df['rolling_av'])

@@ -84,11 +84,16 @@ class GridWorldEnv(gym.Env):
         self.cost = [0, 0]
         self.ep_reward = 0
         self.revenue = [0, 0]
+        self.passenger_wait_time = [0, 0]
+        self.passenger_travel_time_1 = [0, 0]
+        self.passenger_travel_time_2 = [0, 0]
+
         self.distance_carried = [0, 0]
         self.pickedup1 = [0, 0]
         self.pickedup2 = [0, 0]
         self.droppedoff1 = [0, 0]
         self.droppedoff2 = [0, 0]
+        self.mean_time_1 = 0
         self.randintlist = []
         self.count = [0, 0]
         self.vertlocs = [4, 12, 16, 24]
@@ -107,6 +112,8 @@ class GridWorldEnv(gym.Env):
         return observation, info
 
     def _demand_generation(self):
+        randval1 = 0
+        randval2 = 0
         flip = random.randint(0, 10)
         randval1 = random.randint(0, 3)
         randval2 = 0
@@ -118,7 +125,8 @@ class GridWorldEnv(gym.Env):
             self.droppedoff1.append(0)
             self.pickedup2.append(0)
             self.droppedoff2.append(0)
-
+            self.passenger_travel_time_1.append(0)
+            self.passenger_travel_time_2.append(0)
 
     def step(self, action):
         self._demand_generation()
@@ -158,7 +166,7 @@ class GridWorldEnv(gym.Env):
                 self.droppedoff1[i] = 1
                 self.pickedup1[i] = 0
                 rewards[0] += 10
-            
+                print(f"UAM 1 Travel Time for passenger {i} : {self.passenger_travel_time_1[i]}")
 
         for i in range(len(self._passenger_path)): 
             if np.array_equal(self._agent_locations[1], self._passenger_path[i][0]) and (self.pickedup2[i] == 0) and (self.pickedup1[i] == 0) and (self.droppedoff1[i] == 0) and (self.droppedoff2[i] == 0) and (sum(self.pickedup2) < 3):
@@ -168,16 +176,25 @@ class GridWorldEnv(gym.Env):
                 self.droppedoff2[i] = 1
                 self.pickedup2[i] = 0
                 rewards[1] += 10
-        
+
+        for i in range(len(self.pickedup1)):
+            if self.pickedup1[i] == 1:
+                self.passenger_travel_time_1[i] += 1
+
+        for i in range(len(self.pickedup2)):
+            if self.pickedup2[i] == 1:
+                self.passenger_travel_time_2[i] += 1
+
         self.count[0] = sum(self.droppedoff1)
         self.count[1] = sum(self.droppedoff2)
         self.ep_reward += sum(rewards)
-        if sum(self.count) >= 1:
+        if sum(self.count) >= 2:
             self.reward_list.append(self.ep_reward)
             terminated = True
         truncated = False
         observation = self._get_obs()
-        info = self._get_info()
+        self.mean_time_1 = (self.passenger_travel_time_1) 
+        info = self.mean_time_1
         if self.render_mode == "human":
             self._render_frame()
         return observation, rewards, terminated, truncated, info

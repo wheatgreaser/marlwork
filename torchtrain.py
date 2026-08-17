@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from customenv import GridWorldEnv
 from gymnasium.wrappers import TimeLimit
-
+import pickle
 
 class DQN(nn.Module):
     def __init__(self, state_size, action_size):
@@ -46,10 +46,10 @@ epsilon = 1.0
 epsilon_min = 0.01
 epsilon_decay = 0.995
 learning_rate = 0.1
-batch_size = 64
-memory_size = 10000
+batch_size = 100
+memory_size = 1000
 start_epsilon = 1.0
-num_episodes = 1000
+num_episodes = 10000
 epsilon_decay = (start_epsilon) / (num_episodes/2)
 memory = deque(maxlen=memory_size)
 
@@ -74,6 +74,7 @@ loss_fn = nn.MSELoss()
 action = [0, 0]
 def get_action(state, epsilon):
     #state = statechanger(state).to(device)
+    state = np.array(state)
     state = torch.FloatTensor(state).to(device)
     if random.random() < epsilon:
         return [random.choice(range(action_size)), random.choice(range(action_size))] 
@@ -89,6 +90,8 @@ def replay():
     minibatch = random.sample(memory, batch_size)
 
     states, actions, rewards, next_states, dones = zip(*minibatch)
+    states = np.array(states)
+    next_states = np.array(next_states)
     states = torch.FloatTensor(states).to(device)
     next_states = torch.FloatTensor(next_states).to(device)
     #states_changed = torch.empty((64, 16)).to(device)
@@ -119,16 +122,16 @@ def replay():
     optimizer_2.zero_grad()
     optim_ds.zero_grad()
     
-    loss_1.backward(retain_graph=True)
-    loss_2.backward(retain_graph=True)
+    loss_1.backward()
+    loss_2.backward()
     optimizer_1.step()
     optimizer_2.step()
-    optim_ds.step()
 
 final_epsilon = 0.0
-target_update_freq = 200
+target_update_freq = 500
 epsilon_decay_2 = 0.995
 reward_list = []
+mean_tt_list = []
 
 def statechanger(state):
     embed_list = torch.FloatTensor().to(device)
@@ -151,18 +154,15 @@ for episode in range(num_episodes):
     while(not flag):
         action = get_action(state, epsilon)
         step_result = env.step(action)
-
-        if len(step_result) == 5:
-            next_state, reward, terminated, truncated, _ = step_result
-            done = terminated or truncated
-        else:
-            next_state, reward, done, _ = step_result
+        next_state, reward, terminated, truncated, info = step_result
+        done = terminated or truncated
         memory.append((state, action, reward, next_state, done))
         state = next_state
         total_reward += reward[0]
         total_reward += reward[1]
         replay()
         if done:
+            mean_tt_list.append((sum(info)/len(info)))
             flag = True
     
     reward_list.append(total_reward)
@@ -175,10 +175,15 @@ for episode in range(num_episodes):
 
     print(f"Episode {episode}, Total Reward: {total_reward}, Epsilon: {epsilon:.3f}")
 
+np.save("mean_tt_torch.npy", mean_tt_list)
+torch.save(target_net_1, "tn_1.pt")
+torch.save(target_net_2, "tn_2.pt")
+torch.save(policy_net_1, "pn_1.pt")
+torch.save(policy_net_2, "pn_2.pt")
 
 
 df = pd.DataFrame({'Reward': reward_list})
-df['rolling_av'] = df.Reward.rolling(10).mean()
+df['rolling_av'] = df.Reward.rolling(100).mean()
 fig, ax = plt.subplots()
 
 ax.plot(list(range(1,(num_episodes+1))), df['rolling_av'])

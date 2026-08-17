@@ -102,7 +102,7 @@ class GridWorldEnv(gym.Env):
     def _demand_generation(self):
         flip = random.randint(0, 10)
         randval1 = random.randint(0, 3)
-        randval2 = 0
+        randval2 = random.randint(0, 3)
         while randval2 == randval1:
             randval2 = random.randint(0, 3)
         if flip == 1:
@@ -115,7 +115,7 @@ class GridWorldEnv(gym.Env):
 
     def step(self, action):
         #self._demand_generation()
-        rewards = [-0.1, -0.1]
+        rewards = [-0, -0]
         direction = [0, 0]
         direction[0] = self._action_to_direction[action[0]]
         self._agent_locations[0] = np.clip(
